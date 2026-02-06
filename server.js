@@ -375,7 +375,7 @@ app.get('/api/recargas-preset', async (req, res) => {
     }
 });
 
-app.post('/api/seed', async (req, res) => {
+async function ejecutarSeed(req, res) {
     try {
         await seedInitialCatalogs();
         res.json({ success: true, message: 'Catálogos iniciales cargados' });
@@ -383,7 +383,10 @@ app.post('/api/seed', async (req, res) => {
         console.error('Error ejecutando seed:', error);
         res.status(500).json({ error: 'Error al cargar catálogos' });
     }
-});
+}
+
+app.post('/api/seed', ejecutarSeed);
+app.get('/api/seed', ejecutarSeed);
 
 // ========================================
 // TEST / PING
