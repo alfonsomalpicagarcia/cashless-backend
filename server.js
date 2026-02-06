@@ -30,23 +30,55 @@ const defaultProductos = [
     { nombre: 'Masaje Relajante', precio: 450, categoria: 'spa', icono: '💆', activo: true }
 ];
 
-async function ensureProductosSeeded() {
+const defaultCategorias = [
+    { nombre: 'alimentos', etiqueta: 'Alimentos', icono: '🍽️', activo: true },
+    { nombre: 'bebidas', etiqueta: 'Bebidas', icono: '🥤', activo: true },
+    { nombre: 'deportes', etiqueta: 'Deportes', icono: '🚣', activo: true },
+    { nombre: 'spa', etiqueta: 'Spa', icono: '💆', activo: true }
+];
+
+const defaultPlanes = [
+    { codigo: 'solo-hospedaje', nombre: 'Solo Hospedaje', precioNoche: 1200, activo: true },
+    { codigo: 'desayuno', nombre: 'Desayuno Incluido', precioNoche: 1500, activo: true },
+    { codigo: 'media-pension', nombre: 'Media Pensión', precioNoche: 1900, activo: true },
+    { codigo: 'all-inclusive', nombre: 'All Inclusive', precioNoche: 2600, activo: true }
+];
+
+const defaultRecargasPreset = [
+    { monto: 1000, etiqueta: '$1,000', activo: true },
+    { monto: 2000, etiqueta: '$2,000', activo: true },
+    { monto: 3000, etiqueta: '$3,000', activo: true },
+    { monto: 5000, etiqueta: '$5,000', activo: true }
+];
+
+async function seedCollection(collectionName, items, uniqueKey) {
+    const collection = db.collection(collectionName);
+    const timestamp = new Date();
+
+    const operations = items.map(item => ({
+        updateOne: {
+            filter: { [uniqueKey]: item[uniqueKey] },
+            update: { $set: { ...item, updatedAt: timestamp }, $setOnInsert: { createdAt: timestamp } },
+            upsert: true
+        }
+    }));
+
+    if (operations.length) {
+        await collection.bulkWrite(operations);
+    }
+}
+
+async function seedInitialCatalogs() {
     if (!db) {
         return;
     }
 
-    const productosCollection = db.collection('productos');
-    const count = await productosCollection.countDocuments();
-    if (count === 0) {
-        await productosCollection.insertMany(
-            defaultProductos.map(producto => ({
-                ...producto,
-                createdAt: new Date(),
-                updatedAt: new Date()
-            }))
-        );
-        console.log('✅ Productos base insertados');
-    }
+    await seedCollection('productos', defaultProductos, 'nombre');
+    await seedCollection('categorias', defaultCategorias, 'nombre');
+    await seedCollection('planes', defaultPlanes, 'codigo');
+    await seedCollection('recargas_preset', defaultRecargasPreset, 'monto');
+
+    console.log('✅ Catálogos iniciales verificados/actualizados');
 }
 
 // Connect to MongoDB
@@ -68,7 +100,7 @@ async function connectDB() {
         console.log('✅ Conectado a MongoDB Atlas');
         console.log('✅ Base de datos:', DB_NAME);
 
-    await ensureProductosSeeded();
+    await seedInitialCatalogs();
     } catch (error) {
         console.error('❌ Error conectando a MongoDB:', error.message);
         console.log('\n💡 Posibles soluciones:');
@@ -297,6 +329,59 @@ app.post('/api/productos', async (req, res) => {
     } catch (error) {
         console.error('Error creando producto:', error);
         res.status(500).json({ error: 'Error al crear producto' });
+    }
+});
+
+// ========================================
+// CATÁLOGOS
+// ========================================
+
+app.get('/api/categorias', async (req, res) => {
+    try {
+        const categorias = await db.collection('categorias')
+            .find({ activo: true })
+            .sort({ nombre: 1 })
+            .toArray();
+        res.json(categorias);
+    } catch (error) {
+        console.error('Error obteniendo categorías:', error);
+        res.status(500).json({ error: 'Error al obtener categorías' });
+    }
+});
+
+app.get('/api/planes', async (req, res) => {
+    try {
+        const planes = await db.collection('planes')
+            .find({ activo: true })
+            .sort({ precioNoche: 1 })
+            .toArray();
+        res.json(planes);
+    } catch (error) {
+        console.error('Error obteniendo planes:', error);
+        res.status(500).json({ error: 'Error al obtener planes' });
+    }
+});
+
+app.get('/api/recargas-preset', async (req, res) => {
+    try {
+        const recargas = await db.collection('recargas_preset')
+            .find({ activo: true })
+            .sort({ monto: 1 })
+            .toArray();
+        res.json(recargas);
+    } catch (error) {
+        console.error('Error obteniendo recargas preset:', error);
+        res.status(500).json({ error: 'Error al obtener recargas preset' });
+    }
+});
+
+app.post('/api/seed', async (req, res) => {
+    try {
+        await seedInitialCatalogs();
+        res.json({ success: true, message: 'Catálogos iniciales cargados' });
+    } catch (error) {
+        console.error('Error ejecutando seed:', error);
+        res.status(500).json({ error: 'Error al cargar catálogos' });
     }
 });
 
