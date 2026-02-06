@@ -11,7 +11,7 @@ app.use(cors());
 app.use(express.json());
 
 // MongoDB Connection
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://doomsayeramg_db_user:9yEJSZkUuWJEoniI@cluster0.qveqwdm.mongodb.net/?appName=Cluster0';
+const MONGODB_URI = process.env.MONGODB_URI || '';
 const DB_NAME = process.env.DB_NAME || 'cashless_db';
 
 let db;
@@ -20,6 +20,10 @@ let client;
 // Connect to MongoDB
 async function connectDB() {
     try {
+        if (!MONGODB_URI) {
+            console.warn('⚠️  MONGODB_URI no configurado. El servidor iniciará sin base de datos.');
+            return;
+        }
         console.log('🔄 Conectando a MongoDB Atlas...');
         console.log('URI:', MONGODB_URI.replace(/:[^:@]+@/, ':****@')); // Ocultar password
         
