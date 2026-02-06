@@ -17,6 +17,38 @@ const DB_NAME = process.env.DB_NAME || 'cashless_db';
 let db;
 let client;
 
+const defaultProductos = [
+    { nombre: 'Hamburguesa Clásica', precio: 150, categoria: 'alimentos', icono: '🍔', activo: true },
+    { nombre: 'Pizza Margarita', precio: 180, categoria: 'alimentos', icono: '🍕', activo: true },
+    { nombre: 'Ensalada Caesar', precio: 120, categoria: 'alimentos', icono: '🥗', activo: true },
+    { nombre: 'Cerveza Corona', precio: 60, categoria: 'bebidas', icono: '🍺', activo: true },
+    { nombre: 'Margarita', precio: 120, categoria: 'bebidas', icono: '🍹', activo: true },
+    { nombre: 'Agua Mineral', precio: 35, categoria: 'bebidas', icono: '💧', activo: true },
+    { nombre: 'Café Americano', precio: 45, categoria: 'bebidas', icono: '☕', activo: true },
+    { nombre: 'Renta Kayak 1hr', precio: 200, categoria: 'deportes', icono: '🚣', activo: true },
+    { nombre: 'Tabla Paddle 1hr', precio: 250, categoria: 'deportes', icono: '🏄', activo: true },
+    { nombre: 'Masaje Relajante', precio: 450, categoria: 'spa', icono: '💆', activo: true }
+];
+
+async function ensureProductosSeeded() {
+    if (!db) {
+        return;
+    }
+
+    const productosCollection = db.collection('productos');
+    const count = await productosCollection.countDocuments();
+    if (count === 0) {
+        await productosCollection.insertMany(
+            defaultProductos.map(producto => ({
+                ...producto,
+                createdAt: new Date(),
+                updatedAt: new Date()
+            }))
+        );
+        console.log('✅ Productos base insertados');
+    }
+}
+
 // Connect to MongoDB
 async function connectDB() {
     try {
@@ -35,6 +67,8 @@ async function connectDB() {
         await db.command({ ping: 1 });
         console.log('✅ Conectado a MongoDB Atlas');
         console.log('✅ Base de datos:', DB_NAME);
+
+    await ensureProductosSeeded();
     } catch (error) {
         console.error('❌ Error conectando a MongoDB:', error.message);
         console.log('\n💡 Posibles soluciones:');
@@ -216,6 +250,53 @@ app.post('/api/transacciones', async (req, res) => {
     } catch (error) {
         console.error('Error creando transacción:', error);
         res.status(500).json({ error: 'Error al crear transacción' });
+    }
+});
+
+// ========================================
+// PRODUCTOS
+// ========================================
+
+// GET - Obtener productos
+app.get('/api/productos', async (req, res) => {
+    try {
+        const categoria = req.query.categoria;
+        const filtro = categoria && categoria !== 'todos'
+            ? { categoria, activo: true }
+            : { activo: true };
+
+        const productos = await db.collection('productos')
+            .find(filtro)
+            .sort({ categoria: 1, nombre: 1 })
+            .toArray();
+
+        res.json(productos);
+    } catch (error) {
+        console.error('Error obteniendo productos:', error);
+        res.status(500).json({ error: 'Error al obtener productos' });
+    }
+});
+
+// POST - Crear producto
+app.post('/api/productos', async (req, res) => {
+    try {
+        const nuevoProducto = {
+            ...req.body,
+            activo: req.body.activo ?? true,
+            createdAt: new Date(),
+            updatedAt: new Date()
+        };
+
+        const result = await db.collection('productos').insertOne(nuevoProducto);
+
+        res.status(201).json({
+            success: true,
+            id: result.insertedId,
+            message: 'Producto creado exitosamente'
+        });
+    } catch (error) {
+        console.error('Error creando producto:', error);
+        res.status(500).json({ error: 'Error al crear producto' });
     }
 });
 
